@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Aventura Brasil - Estados e Capitais</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Google Fonts: Fredoka & Nunito -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --color-norte: #10b981;
+      --color-nordeste: #f59e0b;
+      --color-centro-oeste: #f97316;
+      --color-sudeste: #3b82f6;
+      --color-sul: #8b5cf6;
+    }
+
+    body {
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: contain;
+    }
+
+    h1, h2, h3, h4, .font-title {
+      font-family: 'Fredoka', cursive, sans-serif;
+    }
+
+    /* Soft realistic interactive region contours */
+    .region-poly {
+      cursor: pointer;
+      stroke: #0f172a;
+      stroke-width: 1.2px;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      transition: all 0.25s ease;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+    }
+
+    .region-poly:hover, .region-poly:active {
+      filter: brightness(1.15) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+      stroke: #ffffff;
+      stroke-width: 2.2px;
+      transform: scale(1.008);
+      transform-origin: center;
+    }
+
+    /* Tactile button bounce */
+    .tap-btn {
+      transition: transform 0.1s ease, filter 0.15s ease;
+    }
+    .tap-btn:active {
+      transform: scale(0.96);
+      filter: brightness(0.92);
+    }
+
+    /* Animated Mascot & Star animations */
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-5px) rotate(2deg); }
+    }
+    .mascot-float {
+      animation: floaty 3s ease-in-out infinite;
+    }
+
+    /* Modal Backdrop Transitions */
+    .modal-enter {
+      animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Custom smooth scrollbar */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+
+<body class="h-full bg-slate-950 text-slate-100 flex flex-col justify-between overflow-hidden">
+
+  <!-- Mobile Viewport Shell (Strict 360px - 440px feel centered on larger screens) -->
+  <div class="relative w-full max-w-md mx-auto h-full flex flex-col bg-slate-900 shadow-2xl overflow-hidden border-x border-slate-800">
+
+    <!-- Top App Bar -->
+    <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-2.5 z-20 flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-xl shadow-md mascot-float">
+          🦜
+        </div>
+        <div>
+          <h1 class="text-white text-base font-bold font-title leading-tight flex items-center gap-1.5">
+            Aventura Brasil
+            <span class="text-[10px] bg-amber-400 text-amber-950 font-black px-1.5 py-0.5 rounded-full uppercase">4º Ano</span>
+          </h1>
+          <p class="text-[11px] text-emerald-400 font-semibold tracking-wide">Estados & Capitais</p>
+        </div>
+      </div>
+
+      <!-- Sound Toggle -->
+      <button id="sound-btn" onclick="toggleSound()" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-base tap-btn active:bg-slate-700 shadow-sm" aria-label="Ligar ou desligar som">
+        🔊
+      </button>
+    </header>
+
+    <section id="screen-home" class="flex-1 flex flex-col overflow-y-auto no-scrollbar pb-24">
+      
+      <!-- Instructional Banner -->
+      <div class="px-4 pt-3 pb-1">
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+          <div class="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-xl flex-shrink-0">
+            👆
+          </div>
+          <div>
+            <h2 class="text-xs font-bold text-white font-title uppercase tracking-wide">Toque em uma Região</h2>
+            <p class="text-[11px] text-slate-300 leading-tight">Escolha no mapa abaixo ou nos cartões para ver os estados e capitais!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Realistic Interactive SVG Brazil Map (Touch-optimized for regions) -->
+      <div class="relative w-full px-2 py-1 flex items-center justify-center flex-shrink-0">
+        <svg id="svg-map" viewBox="0 0 540 560" class="w-full h-auto max-h-[290px] select-none touch-manipulation" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+              <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity="0.35"/>
+            </filter>
+          </defs>
+
+          <!-- Group 1: NORTE (Green) -->
+          <g id="geo-norte" class="region-poly" onclick="openRegionModal('Norte')" role="button" aria-label="Região Norte">
+            <path d="M 28,154 C 42,126 84,104 126,86 C 172,72 208,24 238,24 C 262,24 266,74 274,96 C 304,90 348,74 374,68 C 392,86 388,118 368,136 C 342,142 344,178 344,232 C 324,248 296,254 266,228 C 244,228 238,252 204,250 C 188,284 148,296 132,254 C 114,246 84,248 42,228 C 22,212 18,178 28,154 Z"
+                  fill="#10b981" filter="url(#shadow)" />
+            <text x="180" y="160" fill="#ffffff" font-size="16" font-weight="900" font-family="Fredoka" text-anchor="middle" pointer-events="none" stroke="#064e3b" stroke-width="3" paint-order="stroke">NORTE</text>
+            <text x="180" y="180" fill="#d1fae5" font-size="11" font-weight="800" font-family="Nunito" text-anchor="middle" pointer-events="none">(7 Estados)</text>
+          </g>
+
+          <!-- Group 2: NORDESTE (Amber) -->
+          <g id="geo-nordeste" class="region-poly" onclick="openRegionModal('Nordeste')" role="button" aria-label="Região Nordeste">
+            <path d="M 374,68 C 418,102 444,124 484,136 C 532,152 522,198 488,212 C 504,234 492,268 474,272 C 452,328 420,332 376,306 C 362,266 348,224 344,176 C 354,142 368,114 374,68 Z"
+                  fill="#f59e0b" filter="url(#shadow)" />
+            <text x="432" y="210" fill="#ffffff" font-size="16" font-weight="900" font-family="Fredoka" text-anchor="middle" pointer-events="none" stroke="#78350f" stroke-width="3" paint-order="stroke">NORDESTE</text>
+            <text x="432" y="230" fill="#fef3c7" font-size="11" font-weight="800" font-family="Nunito" text-anchor="middle" pointer-events="none">(9 Estados)</text>
+          </g>
+
+          <!-- Group 3: CENTRO-OESTE (Orange) -->
+          <g id="geo-centro-oeste" class="region-poly" onclick="openRegionModal('Centro-Oeste')" role="button" aria-label="Região Centro-Oeste">
+            <path d="M 204,250 C 242,252 266,230 298,256 C 334,258 344,288 348,326 C 362,354 348,396 322,408 C 298,426 294,458 266,464 C 238,446 226,388 238,362 C 218,348 198,300 204,250 Z"
+                  fill="#f97316" filter="url(#shadow)" />
+            <text x="272" y="336" fill="#ffffff" font-size="14" font-weight="900" font-family="Fredoka" text-anchor="middle" pointer-events="none" stroke="#7c2d12" stroke-width="3" paint-order="stroke">CENTRO-OESTE</text>
+            <text x="272" y="354" fill="#ffedd5" font-size="10" font-weight="800" font-family="Nunito" text-anchor="middle" pointer-events="none">(3 Estados + DF)</text>
+            <!-- Brasília Pin Icon -->
+            <circle cx="334" cy="336" r="6" fill="#facc15" stroke="#78350f" stroke-width="1.8" />
+          </g>
+
+          <!-- Group 4: SUDESTE (Blue) -->
+          <g id="geo-sudeste" class="region-poly" onclick="openRegionModal('Sudeste')" role="button" aria-label="Região Sudeste">
+            <path d="M 348,326 C 378,320 412,328 436,346 C 468,366 458,416 432,434 C 404,444 388,474 340,476 C 304,472 308,440 322,408 C 348,394 362,354 348,326 Z"
+                  fill="#3b82f6" filter="url(#shadow)" />
+            <text x="390" y="400" fill="#ffffff" font-size="15" font-weight="900" font-family="Fredoka" text-anchor="middle" pointer-events="none" stroke="#1e3a8a" stroke-width="3" paint-order="stroke">SUDESTE</text>
+            <text x="390" y="418" fill="#dbeafe" font-size="10" font-weight="800" font-family="Nunito" text-anchor="middle" pointer-events="none">(4 Estados)</text>
+          </g>
+
+          <!-- Group 5: SUL (Purple) -->
+          <g id="geo-sul" class="region-poly" onclick="openRegionModal('Sul')" role="button" aria-label="Região Sul">
+            <path d="M 276,464 C 304,458 334,472 344,482 C 346,522 318,552 284,554 C 248,542 248,506 276,464 Z"
+                  fill="#8b5cf6" filter="url(#shadow)" />
+            <text x="298" y="504" fill="#ffffff" font-size="15" font-weight="900" font-family="Fredoka" text-anchor="middle" pointer-events="none" stroke="#4c1d95" stroke-width="3" paint-order="stroke">SUL</text>
+            <text x="298" y="522" fill="#ede9fe" font-size="10" font-weight="800" font-family="Nunito" text-anchor="middle" pointer-events="none">(3 Estados)</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Quick Touch Region Cards (Thumb-friendly row of cards) -->
+      <div class="px-4 py-2 flex flex-col gap-2">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-400">Escolha uma Região para Explorar:</h3>
+        
+        <div class="grid grid-cols-1 gap-2">
+          <!-- Norte Card -->
+          <button onclick="openRegionModal('Norte')" class="tap-btn w-full min-h-[50px] p-3 rounded-2xl bg-emerald-950/60 border-2 border-emerald-500/50 flex items-center justify-between text-left shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🌳</span>
+              <div>
+                <span class="font-title font-bold text-white text-sm block">Região Norte</span>
+                <span class="text-[11px] text-emerald-300 font-semibold">7 Estados (AM, PA, AC, RO, RR, AP, TO)</span>
+              </div>
+            </div>
+            <span class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-black text-sm">➔</span>
+          </button>
+
+          <!-- Nordeste Card -->
+          <button onclick="openRegionModal('Nordeste')" class="tap-btn w-full min-h-[50px] p-3 rounded-2xl bg-amber-950/60 border-2 border-amber-500/50 flex items-center justify-between text-left shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🏖️</span>
+              <div>
+                <span class="font-title font-bold text-white text-sm block">Região Nordeste</span>
+                <span class="text-[11px] text-amber-300 font-semibold">9 Estados (BA, CE, PE, MA, PB, RN, AL, PI, SE)</span>
+              </div>
+            </div>
+            <span class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-black text-sm">➔</span>
+          </button>
+
+          <!-- Centro-Oeste Card -->
+          <button onclick="openRegionModal('Centro-Oeste')" class="tap-btn w-full min-h-[50px] p-3 rounded-2xl bg-orange-950/60 border-2 border-orange-500/50 flex items-center justify-between text-left shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🌾</span>
+              <div>
+                <span class="font-title font-bold text-white text-sm block">Região Centro-Oeste</span>
+                <span class="text-[11px] text-orange-300 font-semibold">3 Estados + DF (MT, MS, GO, DF)</span>
+              </div>
+            </div>
+            <span class="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-300 flex items-center justify-center font-black text-sm">➔</span>
+          </button>
+
+          <!-- Sudeste Card -->
+          <button onclick="openRegionModal('Sudeste')" class="tap-btn w-full min-h-[50px] p-3 rounded-2xl bg-blue-950/60 border-2 border-blue-500/50 flex items-center justify-between text-left shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🏙️</span>
+              <div>
+                <span class="font-title font-bold text-white text-sm block">Região Sudeste</span>
+                <span class="text-[11px] text-blue-300 font-semibold">4 Estados (SP, RJ, MG, ES)</span>
+              </div>
+            </div>
+            <span class="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center font-black text-sm">➔</span>
+          </button>
+
+          <!-- Sul Card -->
+          <button onclick="openRegionModal('Sul')" class="tap-btn w-full min-h-[50px] p-3 rounded-2xl bg-purple-950/60 border-2 border-purple-500/50 flex items-center justify-between text-left shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">❄️</span>
+              <div>
+                <span class="font-title font-bold text-white text-sm block">Região Sul</span>
+                <span class="text-[11px] text-purple-300 font-semibold">3 Estados (PR, SC, RS)</span>
+              </div>
+            </div>
+            <span class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-black text-sm">➔</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div id="home-cta-bar" class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-950 via-slate-900 to-transparent z-20">
+      <button onclick="startQuiz('all')" class="tap-btn w-full min-h-[54px] rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white font-title font-bold text-lg shadow-xl shadow-emerald-900/50 flex items-center justify-center gap-2 border-2 border-emerald-400">
+        <span>🎮</span>
+        <span>JOGAR QUIZ DO BRASIL</span>
+        <span class="text-xs bg-black/20 px-2 py-0.5 rounded-full font-sans">10 PERGUNTAS</span>
+      </button>
+    </div>
+
+    <section id="screen-quiz" class="hidden flex-1 flex flex-col justify-between p-4 overflow-y-auto no-scrollbar">
+      
+      <!-- Top Quiz Bar -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <button onclick="backToHome()" class="tap-btn px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 flex items-center gap-1">
+            <span>⬅</span> <span>Mapa</span>
+          </button>
+          
+          <span id="quiz-question-indicator" class="text-xs font-bold px-3 py-1 rounded-full bg-slate-800 text-emerald-400 border border-slate-700">
+            Pergunta 1 de 10
+          </span>
+
+          <div class="flex items-center gap-1 text-amber-400 font-extrabold text-sm bg-amber-400/10 px-2.5 py-1 rounded-xl border border-amber-400/30">
+            ⭐ <span id="quiz-score-val">0</span>
+          </div>
+        </div>
+
+        <!-- Animated Progress bar -->
+        <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+          <div id="quiz-progress-fill" class="h-full bg-gradient-to-r from-emerald-400 to-teal-400 w-1/10 transition-all duration-300"></div>
+        </div>
+      </div>
+
+      <!-- Question Prompt Area -->
+      <div class="my-auto py-3">
+        <div class="bg-slate-800/90 border-2 border-slate-700/80 rounded-3xl p-5 text-center shadow-lg space-y-2">
+          <span id="quiz-region-badge" class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Região Sudeste
+          </span>
+          <h2 id="quiz-prompt-text" class="text-lg sm:text-xl font-bold font-title text-white leading-snug pt-1">
+            Qual é a capital de Minas Gerais?
+          </h2>
+        </div>
+
+        <!-- 4 Big Ergonomic Choice Buttons (Min 50px height) -->
+        <div id="quiz-options-box" class="flex flex-col gap-2.5 pt-4">
+          <!-- Generated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Footer indicator -->
+      <div class="text-center text-[11px] text-slate-400 font-semibold py-1">
+        Toque na alternativa correta para pontuar!
+      </div>
+    </section>
+
+    <section id="screen-finish" class="hidden flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+      <div id="finish-badge-icon" class="text-6xl mascot-float">🏆</div>
+      
+      <div>
+        <h2 id="finish-title-text" class="text-2xl font-bold font-title text-white">Parabéns!</h2>
+        <p id="finish-subtitle-text" class="text-xs text-slate-300 mt-1">Você completou o Desafio das Capitais!</p>
+      </div>
+
+      <!-- Score Summary Box -->
+      <div class="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 flex items-center justify-around shadow-inner">
+        <div>
+          <div id="finish-score-hits" class="text-3xl font-extrabold text-emerald-400 font-title">10/10</div>
+          <div class="text-[11px] font-bold text-slate-400 uppercase">Acertos</div>
+        </div>
+        <div class="w-px h-10 bg-slate-700"></div>
+        <div>
+          <div id="finish-score-stars" class="text-3xl font-extrabold text-amber-400 font-title">100</div>
+          <div class="text-[11px] font-bold text-slate-400 uppercase">Estrelas</div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="w-full flex flex-col gap-2.5 pt-2">
+        <button onclick="startQuiz(currentQuizScope)" class="tap-btn w-full min-h-[50px] bg-emerald-500 hover:bg-emerald-600 text-white font-title font-bold text-base rounded-2xl shadow-lg border border-emerald-400 flex items-center justify-center gap-2">
+          🔄 JOGAR NOVAMENTE
+        </button>
+        <button onclick="backToHome()" class="tap-btn w-full min-h-[50px] bg-slate-800 hover:bg-slate-700 text-slate-200 font-title font-bold text-base rounded-2xl border border-slate-700 flex items-center justify-center gap-2">
+          🗺️ VOLTAR AO MAPA
+        </button>
+      </div>
+    </section>
+
+    <div id="region-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="w-full max-w-md bg-slate-900 border-t-2 sm:border-2 border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[85vh] modal-enter overflow-hidden">
+        
+        <!-- Modal Drag/Touch handle for mobile ergonomics -->
+        <div class="pt-3 pb-1 flex justify-center cursor-pointer" onclick="closeRegionModal()">
+          <div class="w-12 h-1.5 bg-slate-700 rounded-full"></div>
+        </div>
+
+        <!-- Modal Header -->
+        <div class="px-5 py-2.5 flex items-center justify-between border-b border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <span id="modal-region-icon" class="text-2xl">🌳</span>
+            <div>
+              <h3 id="modal-region-name" class="text-xl font-bold font-title text-white">Região Norte</h3>
+              <p id="modal-region-count" class="text-[11px] text-emerald-400 font-bold">7 Estados e Capitais</p>
+            </div>
+          </div>
+          <button onclick="closeRegionModal()" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 font-bold flex items-center justify-center tap-btn active:bg-slate-700">
+            ✕
+          </button>
+        </div>
+
+        <!-- Curiosidade Card -->
+        <div class="px-5 pt-3">
+          <div id="modal-region-curiosity-box" class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-slate-200 flex gap-2.5 items-start">
+            <span class="text-base flex-shrink-0">💡</span>
+            <p id="modal-region-curiosity-text" class="leading-relaxed">Curiosidade rápida da região.</p>
+          </div>
+        </div>
+
+        <!-- List of States & Capitals (Organized for memorization) -->
+        <div class="px-5 py-3 flex-1 overflow-y-auto space-y-2 no-scrollbar">
+          <div class="text-[11px] font-black uppercase text-slate-400 tracking-wider">Estados & Capitais Oficiais:</div>
+          <div id="modal-states-list" class="space-y-2 pb-2">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Modal Actions Footer -->
+        <div class="p-4 bg-slate-950 border-t border-slate-800 flex gap-2 flex-shrink-0">
+          <button id="modal-quiz-btn" onclick="startRegionalQuizFromModal()" class="tap-btn flex-1 min-h-[48px] rounded-xl bg-emerald-500 text-white font-title font-bold text-sm flex items-center justify-center gap-1.5 shadow-md">
+            <span>🎯</span> <span>Jogar Desafio Desta Região</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="feedback-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="w-full max-w-sm bg-slate-900 border-2 rounded-3xl p-5 text-center shadow-2xl modal-enter space-y-3.5" id="feedback-card">
+        
+        <!-- Big Animated Icon -->
+        <div id="feedback-icon" class="text-5xl">🎉</div>
+        
+        <div>
+          <h3 id="feedback-title" class="text-xl font-bold font-title text-white">Muito bem!</h3>
+          <p id="feedback-detail" class="text-xs text-slate-300 mt-1">A capital de Minas Gerais é Belo Horizonte.</p>
+        </div>
+
+        <!-- Next Question Big Button -->
+        <button onclick="closeFeedbackAndNext()" class="tap-btn w-full min-h-[50px] bg-white text-slate-950 font-title font-bold text-base rounded-2xl shadow-lg flex items-center justify-center gap-2">
+          <span>Próxima Pergunta</span> <span>➡️</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const BRAZIL_REGIONS = {
+      "Norte": {
+        icon: "🌳",
+        color: "#10b981",
+        curiosidade: "É a maior região do país em território! É onde fica a gigantesca Floresta Amazônica e a maioria dos grandes rios do Brasil.",
+        estados: [
+          { uf: "AC", nome: "Acre", capital: "Rio Branco" },
+          { uf: "AP", nome: "Amapá", capital: "Macapá" },
+          { uf: "AM", nome: "Amazonas", capital: "Manaus" },
+          { uf: "PA", nome: "Pará", capital: "Belém" },
+          { uf: "RO", nome: "Rondônia", capital: "Porto Velho" },
+          { uf: "RR", nome: "Roraima", capital: "Boa Vista" },
+          { uf: "TO", nome: "Tocantins", capital: "Palmas" }
+        ]
+      },
+      "Nordeste": {
+        icon: "🏖️",
+        color: "#f59e0b",
+        curiosidade: "É a região com o maior número de estados (são 9!) e um litoral com praias quentes, dunas e ricas manifestações culturais como o Frevo e o Maracatu.",
+        estados: [
+          { uf: "AL", nome: "Alagoas", capital: "Maceió" },
+          { uf: "BA", nome: "Bahia", capital: "Salvador" },
+          { uf: "CE", nome: "Ceará", capital: "Fortaleza" },
+          { uf: "MA", nome: "Maranhão", capital: "São Luís" },
+          { uf: "PB", nome: "Paraíba", capital: "João Pessoa" },
+          { uf: "PE", nome: "Pernambuco", capital: "Recife" },
+          { uf: "PI", nome: "Piauí", capital: "Teresina" },
+          { uf: "RN", nome: "Rio Grande do Norte", capital: "Natal" },
+          { uf: "SE", nome: "Sergipe", capital: "Aracaju" }
+        ]
+      },
+      "Centro-Oeste": {
+        icon: "🌾",
+        color: "#f97316",
+        curiosidade: "É o coração do Brasil! Não possui praias no mar, mas abriga o Pantanal com muitos animais, o Cerrado e a capital de todo o Brasil, Brasília.",
+        estados: [
+          { uf: "DF", nome: "Distrito Federal", capital: "Brasília" },
+          { uf: "GO", nome: "Goiás", capital: "Goiânia" },
+          { uf: "MT", nome: "Mato Grosso", capital: "Cuiabá" },
+          { uf: "MS", nome: "Mato Grosso do Sul", capital: "Campo Grande" }
+        ]
+      },
+      "Sudeste": {
+        icon: "🏙️",
+        color: "#3b82f6",
+        curiosidade: "É a região mais habitada e rica do Brasil! Combina grandes metrópoles, praias do Rio e o delicioso pão de queijo mineiro.",
+        estados: [
+          { uf: "ES", nome: "Espírito Santo", capital: "Vitória" },
+          { uf: "MG", nome: "Minas Gerais", capital: "Belo Horizonte" },
+          { uf: "RJ", nome: "Rio de Janeiro", capital: "Rio de Janeiro" },
+          { uf: "SP", nome: "São Paulo", capital: "São Paulo" }
+        ]
+      },
+      "Sul": {
+        icon: "❄️",
+        color: "#8b5cf6",
+        curiosidade: "É a região mais fria do Brasil! Famosa pelas Cataratas do Iguaçu, cidades serranas e tradições dos colonizadores imigrantes.",
+        estados: [
+          { uf: "PR", nome: "Paraná", capital: "Curitiba" },
+          { uf: "SC", nome: "Santa Catarina", capital: "Florianópolis" },
+          { uf: "RS", nome: "Rio Grande do Sul", capital: "Porto Alegre" }
+        ]
+      }
+    };
+
+    // Flattened complete list of all 27 units
+    const ALL_STATES = [];
+    Object.keys(BRAZIL_REGIONS).forEach(reg => {
+      BRAZIL_REGIONS[reg].estados.forEach(e => {
+        ALL_STATES.push({ ...e, regiao: reg });
+      });
+    });
+
+    let audioCtx = null;
+    let isSoundMuted = false;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioClass) audioCtx = new AudioClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function toggleSound() {
+      isSoundMuted = !isSoundMuted;
+      const btn = document.getElementById('sound-btn');
+      btn.textContent = isSoundMuted ? '🔇' : '🔊';
+    }
+
+    function playSound(type) {
+      if (isSoundMuted) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const t = ctx.currentTime;
+
+        if (type === 'tap') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(420, t);
+          osc.frequency.exponentialRampToValueAtTime(180, t + 0.04);
+          gain.gain.setValueAtTime(0.08, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.04);
+        } else if (type === 'correct') {
+          // Play a cheerful two-tone chime
+          [523.25, 783.99].forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t + idx * 0.1);
+            gain.gain.setValueAtTime(0.15, t + idx * 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.1 + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t + idx * 0.1);
+            osc.stop(t + idx * 0.1 + 0.35);
+          });
+        } else if (type === 'wrong') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, t);
+          osc.frequency.linearRampToValueAtTime(120, t + 0.25);
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.25);
+        } else if (type === 'victory') {
+          [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(f, t + i * 0.1);
+            gain.gain.setValueAtTime(0.2, t + i * 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.4);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t + i * 0.1);
+            osc.stop(t + i * 0.1 + 0.4);
+          });
+        }
+      } catch (e) {
+        console.warn("Sound error:", e);
+      }
+    }
+
+    let currentSelectedModalRegion = "Norte";
+
+    function openRegionModal(regionKey) {
+      playSound('tap');
+      const data = BRAZIL_REGIONS[regionKey];
+      if (!data) return;
+      currentSelectedModalRegion = regionKey;
+
+      document.getElementById('modal-region-icon').textContent = data.icon;
+      document.getElementById('modal-region-name').textContent = `Região ${regionKey}`;
+      document.getElementById('modal-region-count').textContent = `${data.estados.length} Estados e Capitais`;
+      document.getElementById('modal-region-curiosity-text').textContent = data.curiosidade;
+
+      const listContainer = document.getElementById('modal-states-list');
+      listContainer.innerHTML = '';
+
+      data.estados.forEach(st => {
+        const item = document.createElement('div');
+        item.className = "flex items-center justify-between p-3 rounded-2xl bg-slate-800/90 border border-slate-700/80 shadow-sm";
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 text-amber-400 font-black text-xs flex items-center justify-center font-title">${st.uf}</span>
+            <div class="text-left">
+              <div class="font-bold text-white text-xs sm:text-sm font-title leading-tight">${st.nome}</div>
+              <div class="text-[11px] text-slate-400">Estado Brasileiro</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-amber-300 font-extrabold text-xs sm:text-sm font-title flex items-center gap-1 justify-end">
+              <span>⭐</span> <span>${st.capital}</span>
+            </div>
+            <div class="text-[10px] text-slate-400 font-semibold uppercase">Capital</div>
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+
+      document.getElementById('region-modal').classList.remove('hidden');
+    }
+
+    function closeRegionModal() {
+      playSound('tap');
+      document.getElementById('region-modal').classList.add('hidden');
+    }
+
+    function startRegionalQuizFromModal() {
+      closeRegionModal();
+      startQuiz(currentSelectedModalRegion);
+    }
+
+    let currentQuizScope = 'all';
+    let quizQuestions = [];
+    let currentQuestionIdx = 0;
+    let quizScore = 0;
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function generateRandomQuiz(scope) {
+      let pool = ALL_STATES;
+      if (scope !== 'all' && BRAZIL_REGIONS[scope]) {
+        pool = ALL_STATES.filter(s => s.regiao === scope);
+      }
+
+      const shuffledPool = shuffleArray(pool);
+      // Select 10 questions (or max available in regional mode)
+      const count = Math.min(10, shuffledPool.length);
+      const chosen = shuffledPool.slice(0, count);
+
+      return chosen.map((stateObj, idx) => {
+        // Vary question types to keep engagement high for 4th graders
+        const qType = idx % 3;
+        let prompt = "";
+        let correctAnswer = "";
+        let wrongOptions = [];
+
+        if (qType === 0) {
+          prompt = `Qual é a capital do estado de ${stateObj.nome}?`;
+          correctAnswer = stateObj.capital;
+          const otherCapitals = ALL_STATES.filter(s => s.capital !== correctAnswer).map(s => s.capital);
+          wrongOptions = shuffleArray(otherCapitals).slice(0, 3);
+        } else if (qType === 1) {
+          prompt = `${stateObj.capital} é a capital de qual estado?`;
+          correctAnswer = stateObj.nome;
+          const otherStates = ALL_STATES.filter(s => s.nome !== correctAnswer).map(s => s.nome);
+          wrongOptions = shuffleArray(otherStates).slice(0, 3);
+        } else {
+          prompt = `Qual é a capital do estado com a sigla ${stateObj.uf} (${stateObj.nome})?`;
+          correctAnswer = stateObj.capital;
+          const otherCapitals = ALL_STATES.filter(s => s.capital !== correctAnswer).map(s => s.capital);
+          wrongOptions = shuffleArray(otherCapitals).slice(0, 3);
+        }
+
+        const allChoices = shuffleArray([correctAnswer, ...wrongOptions]);
+
+        return {
+          stateObj,
+          prompt,
+          correctAnswer,
+          choices: allChoices
+        };
+      });
+    }
+
+    function startQuiz(scope = 'all') {
+      playSound('tap');
+      currentQuizScope = scope;
+      quizQuestions = generateRandomQuiz(scope);
+      currentQuestionIdx = 0;
+      quizScore = 0;
+
+      // Switch screens
+      document.getElementById('screen-home').classList.add('hidden');
+      document.getElementById('home-cta-bar').classList.add('hidden');
+      document.getElementById('screen-finish').classList.add('hidden');
+      document.getElementById('screen-quiz').classList.remove('hidden');
+
+      renderCurrentQuestion();
+    }
+
+    function backToHome() {
+      playSound('tap');
+      document.getElementById('screen-quiz').classList.add('hidden');
+      document.getElementById('screen-finish').classList.add('hidden');
+      document.getElementById('screen-home').classList.remove('hidden');
+      document.getElementById('home-cta-bar').classList.remove('hidden');
+    }
+
+    function renderCurrentQuestion() {
+      const q = quizQuestions[currentQuestionIdx];
+      const total = quizQuestions.length;
+
+      // Update counters & progress
+      document.getElementById('quiz-question-indicator').textContent = `Pergunta ${currentQuestionIdx + 1} de ${total}`;
+      document.getElementById('quiz-score-val').textContent = quizScore;
+      document.getElementById('quiz-progress-fill').style.width = `${((currentQuestionIdx + 1) / total) * 100}%`;
+
+      // Prompt and badge
+      document.getElementById('quiz-region-badge').textContent = `Região ${q.stateObj.regiao} • ${q.stateObj.uf}`;
+      document.getElementById('quiz-prompt-text').textContent = q.prompt;
+
+      // Render 4 ergonomic touch buttons
+      const box = document.getElementById('quiz-options-box');
+      box.innerHTML = '';
+
+      q.choices.forEach(choiceText => {
+        const btn = document.createElement('button');
+        btn.className = "tap-btn w-full min-h-[50px] p-3 rounded-2xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border-2 border-slate-700 text-white font-title font-bold text-base sm:text-lg transition shadow-md flex items-center justify-center text-center";
+        btn.textContent = choiceText;
+        btn.onclick = () => handleChoiceTap(choiceText, q);
+        box.appendChild(btn);
+      });
+    }
+
+    function handleChoiceTap(selectedChoice, questionData) {
+      const isRight = (selectedChoice === questionData.correctAnswer);
+      const modal = document.getElementById('feedback-modal');
+      const card = document.getElementById('feedback-card');
+      const icon = document.getElementById('feedback-icon');
+      const title = document.getElementById('feedback-title');
+      const detail = document.getElementById('feedback-detail');
+
+      if (isRight) {
+        playSound('correct');
+        quizScore += 10;
+        document.getElementById('quiz-score-val').textContent = quizScore;
+
+        card.className = "w-full max-w-sm bg-slate-900 border-2 border-emerald-500 rounded-3xl p-5 text-center shadow-2xl modal-enter space-y-3.5";
+        icon.textContent = "🌟";
+        title.className = "text-2xl font-bold font-title text-emerald-400";
+        
+        const praises = ["Show de bola!", "Mandou muito bem!", "Você acertou!", "Sensacional!"];
+        title.textContent = praises[Math.floor(Math.random() * praises.length)];
+        detail.textContent = `Correto! A resposta é ${questionData.correctAnswer}.`;
+      } else {
+        playSound('wrong');
+        card.className = "w-full max-w-sm bg-slate-900 border-2 border-rose-500 rounded-3xl p-5 text-center shadow-2xl modal-enter space-y-3.5";
+        icon.textContent = "💡";
+        title.className = "text-2xl font-bold font-title text-rose-400";
+        title.textContent = "Quase lá!";
+        detail.textContent = `A resposta certa é: ${questionData.correctAnswer}. Continue firme!`;
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeFeedbackAndNext() {
+      playSound('tap');
+      document.getElementById('feedback-modal').classList.add('hidden');
+      currentQuestionIdx++;
+
+      if (currentQuestionIdx < quizQuestions.length) {
+        renderCurrentQuestion();
+      } else {
+        showQuizFinish();
+      }
+    }
+
+    function showQuizFinish() {
+      playSound('victory');
+      document.getElementById('screen-quiz').classList.add('hidden');
+      document.getElementById('screen-finish').classList.remove('hidden');
+
+      const total = quizQuestions.length;
+      const hits = quizScore / 10;
+      const pct = (hits / total) * 100;
+
+      document.getElementById('finish-score-hits').textContent = `${hits}/${total}`;
+      document.getElementById('finish-score-stars').textContent = quizScore;
+
+      const titleEl = document.getElementById('finish-title-text');
+      const subtitleEl = document.getElementById('finish-subtitle-text');
+      const badgeEl = document.getElementById('finish-badge-icon');
+
+      if (pct >= 80) {
+        badgeEl.textContent = "🥇";
+        titleEl.textContent = "Campeão das Capitais!";
+        subtitleEl.textContent = "Você arrasou! Conhece muito bem o mapa do Brasil!";
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }
+      } else if (pct >= 50) {
+        badgeEl.textContent = "🥈";
+        titleEl.textContent = "Muito Bom Trabalho!";
+        subtitleEl.textContent = "Você já aprendeu bastante! Dê mais uma olhadinha no mapa e tente os 100%!";
+      } else {
+        badgeEl.textContent = "🌱";
+        titleEl.textContent = "Bom Treino!";
+        subtitleEl.textContent = "Estudar com o mapa vai te ajudar a memorizar todas elas. Vamos de novo?";
+      }
+    }
+  </script>
+</body>
+</html>
